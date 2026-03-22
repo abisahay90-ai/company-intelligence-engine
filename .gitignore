@@ -1,0 +1,13 @@
+# Secret keys — NEVER commit these
+.env
+
+# Data files — too large for GitHub
+data/
+
+# Python cache — auto-generated
+__pycache__/
+*.pyc
+*.pyo
+
+# VS Code settings
+.vscode/

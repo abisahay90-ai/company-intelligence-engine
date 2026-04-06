@@ -30,6 +30,18 @@ You type a company ticker. You get a complete intelligence brief:
 
 ## Quick Start
 ```bash
+# Install dependencies
+pip install requests anthropic reportlab
+
+# Phase 1 — Collect SEC filings
+python collectors/sec_collector.py --ticker TSLA
+
+# Phase 2 — Generate AI brief  
+python engine/synthesizer.py --ticker TSLA
+
+# Phase 3 — Create PDF report
+python outputs/pdf_generator.py --ticker TSLA
+```
 # Company Intelligence & Interview Synthesis Engine
 
 > Pull any public company's financial data, run it through AI, get a boardroom-ready brief — automatically.

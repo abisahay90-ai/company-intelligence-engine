@@ -1,0 +1,6 @@
+# Don't push generated PDFs to GitHub — too large
+pdfs/
+
+# Don't push compiled Python files
+__pycache__/
+*.pyc

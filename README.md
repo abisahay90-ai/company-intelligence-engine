@@ -25,7 +25,7 @@ No SaaS subscription. No manual research. No vendor lock-in.
 - [x] Phase 1 — SEC EDGAR collector ✅
 - [x] Phase 2 — Claude AI synthesis engine ✅
 - [x] Phase 3 — PDF brief generator ✅
-- [ ] Phase 4 — Web dashboard (building now)
+- [x] Phase 4 — Web dashboard ✅
 - [ ] Phase 5 — Automated daily scheduler (coming soon)
 
 ---
@@ -63,6 +63,9 @@ python engine/synthesizer.py --ticker TSLA
 
 # Phase 3 — Create PDF report
 python outputs/pdf_generator.py --ticker TSLA
+
+# Phase 4 — Launch web dashboard
+python -m streamlit run outputs/dashboard.py
 ```
 
 ---

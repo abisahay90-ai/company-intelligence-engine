@@ -1,4 +1,6 @@
 # Company Intelligence & Interview Synthesis Engine
+An Open-Source Agentic Framework for High-Fidelity Financial Analysis.
+Solving the "Insight Chasm" by moving from 'Generative Fluff' to 'Deterministic Ground Truth' for $0.01 per brief
 
 > Pull any public company's financial data, run it through AI, get a boardroom-ready brief — automatically.
 

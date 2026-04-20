@@ -40,7 +40,7 @@ jobs:
       # Step 5: Upload generated PDFs as artifacts
       # This stores the PDFs in GitHub so you can download them
       - name: Upload PDF reports
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4
         if: always()
         with:
           name: intelligence-briefs-${{ github.run_number }}

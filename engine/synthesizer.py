@@ -42,8 +42,9 @@ def load_env(filepath=".env"):
 
 ENV            = load_env()
 API_KEY        = ENV.get("ANTHROPIC_API_KEY", "")
-INPUT_DIR      = Path("data/sec_filings")
-OUTPUT_DIR     = Path("data/briefs")
+BASE_DIR   = Path(__file__).parent.parent
+INPUT_DIR  = BASE_DIR / "data/sec_filings"
+OUTPUT_DIR = BASE_DIR / "data/briefs"
 MODEL          = "claude-opus-4-6"
 
 

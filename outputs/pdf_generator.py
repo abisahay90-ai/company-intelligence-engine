@@ -32,8 +32,9 @@ from reportlab.lib.enums import TA_LEFT, TA_CENTER, TA_RIGHT
 
 # ── Configuration ─────────────────────────────────────────────────────────────
 
-INPUT_DIR  = Path("data/briefs")
-OUTPUT_DIR = Path("outputs/pdfs")
+BASE_DIR   = Path(__file__).parent.parent
+INPUT_DIR  = BASE_DIR / "data/briefs"
+OUTPUT_DIR = BASE_DIR / "outputs/pdfs"
 
 # Brand colors — professional dark blue palette
 COLOR_DARK      = colors.HexColor("#0A1628")   # Near black — headers

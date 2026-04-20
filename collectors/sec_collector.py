@@ -25,7 +25,8 @@ import re                     # Built into Python — cleans up text
 # ─────────────────────────────────────────────────────────────
 
 USER_AGENT = "CompanyIntelligenceEngine abhishek@youremail.com"
-OUTPUT_DIR = Path("data/sec_filings")
+BASE_DIR   = Path(__file__).parent.parent
+OUTPUT_DIR = BASE_DIR / "data/sec_filings"
 
 # ─────────────────────────────────────────────────────────────
 # STEP 1 — Convert ticker symbol to SEC's internal ID (CIK)

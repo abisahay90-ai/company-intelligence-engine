@@ -1,0 +1,48 @@
+name: 🏛️ Sovereign Intelligence — Daily Brief
+
+on:
+  schedule:
+    # Runs at 9:00 AM EST (13:00 UTC) Monday to Friday
+    - cron: '0 13 * * 1-5'
+  # Allows you to trigger manually from GitHub for demos
+  workflow_dispatch:
+
+jobs:
+  run-intelligence-engine:
+    runs-on: ubuntu-latest
+
+    steps:
+      # Step 1: Check out your code
+      - name: Checkout repository
+        uses: actions/checkout@v3
+
+      # Step 2: Set up Python
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      # Step 3: Install dependencies
+      - name: Install dependencies
+        run: |
+          pip install requests anthropic reportlab
+
+      # Step 4: Run the intelligence engine
+      # API keys come from GitHub Secrets — never hardcoded
+      - name: Run Sovereign Intelligence Engine
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
+          SEC_USER_AGENT: ${{ secrets.SEC_USER_AGENT }}
+        run: |
+          python scheduler/run_pipeline.py
+
+      # Step 5: Upload generated PDFs as artifacts
+      # This stores the PDFs in GitHub so you can download them
+      - name: Upload PDF reports
+        uses: actions/upload-artifact@v3
+        if: always()
+        with:
+          name: intelligence-briefs-${{ github.run_number }}
+          path: outputs/pdfs/
+          retention-days: 30

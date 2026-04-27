@@ -1,251 +1,277 @@
 """
-SEC EDGAR Collector
-====================
+SEC EDGAR Collector (LLM-Ready + Safe Mode)
+===========================================
 What this file does:
-  - You give it a company ticker symbol (like AAPL for Apple)
-  - It finds that company in the SEC database
-  - It downloads their latest financial filings (10-K and 10-Q)
-  - It saves everything as a JSON file for our AI engine to read later
+  - Takes a company ticker (e.g. AAPL)
+  - Maps it to SEC CIK
+  - Downloads latest 10-K / 10-Q filings
+  - Extracts key sections (MD&A, Risk Factors, Business)
+  - Cleans + chunks text for LLM ingestion
+  - Saves structured JSON output
 
-A 10-K = a company's full yearly financial report (required by law)
-A 10-Q = a company's quarterly update (every 3 months)
-Both are public documents — free for anyone to read on SEC EDGAR
+Why this version is better:
+  - SEC-safe rate limiting
+  - Retry + backoff handling
+  - LLM-ready structured chunks
+  - Section-aware extraction (not just raw text)
 """
 
-import json        # Built into Python — saves data as JSON files
-import time        # Built into Python — lets us pause between requests
-import argparse    # Built into Python — lets us pass options from command line
-import requests    # We installed this — lets Python talk to websites
-from pathlib import Path      # Built into Python — handles file/folder paths
-from datetime import datetime # Built into Python — gets current date/time
-import re                     # Built into Python — cleans up text
+import json
+import time
+import argparse
+import requests
+import re
+from pathlib import Path
+from datetime import datetime
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
-# ─────────────────────────────────────────────────────────────
-# CONFIGURATION
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# CONFIG (SEC SAFE MODE)
+# ─────────────────────────────────────────────
 
-USER_AGENT = "CompanyIntelligenceEngine abhishek@youremail.com"
+USER_AGENT = "CompanyIntelligenceEngine/1.0 (your-email@example.com)"
 BASE_DIR   = Path(__file__).parent.parent
 OUTPUT_DIR = BASE_DIR / "data/sec_filings"
 
-# ─────────────────────────────────────────────────────────────
-# STEP 1 — Convert ticker symbol to SEC's internal ID (CIK)
-# ─────────────────────────────────────────────────────────────
+RATE_LIMIT_SECONDS = 0.25   # SEC-safe pacing
+MAX_RETRIES = 5
+
+# ─────────────────────────────────────────────
+# SESSION WITH RETRY + BACKOFF
+# ─────────────────────────────────────────────
+
+def get_session():
+    session = requests.Session()
+
+    retry = Retry(
+        total=MAX_RETRIES,
+        backoff_factor=1.5,
+        status_forcelist=[429, 500, 502, 503, 504],
+        allowed_methods=["GET"]
+    )
+
+    adapter = HTTPAdapter(max_retries=retry)
+    session.mount("https://", adapter)
+    session.headers.update({"User-Agent": USER_AGENT})
+
+    return session
+
+
+session = get_session()
+
+# ─────────────────────────────────────────────
+# STEP 1 — Ticker → CIK
+# ─────────────────────────────────────────────
 
 def ticker_to_cik(ticker):
-    """
-    Look up a company's CIK number using their stock ticker.
-    CIK = Central Index Key — SEC's unique ID for every public company.
-    Example: Apple's ticker is AAPL but their SEC ID is 0000320193
-    """
-    print(f"\n  [1/4] Looking up CIK number for: {ticker.upper()}")
+    print(f"\n[1/4] Looking up CIK for {ticker.upper()}")
 
     url = "https://www.sec.gov/files/company_tickers.json"
-    response = requests.get(url, headers={"User-Agent": USER_AGENT})
-    response.raise_for_status()
+    r = session.get(url, timeout=10)
+    r.raise_for_status()
+    data = r.json()
 
-    companies = response.json()
-
-    for _, company in companies.items():
+    for _, company in data.items():
         if company["ticker"].upper() == ticker.upper():
             cik = str(company["cik_str"]).zfill(10)
-            print(f"  Found: {company['title']} | CIK: {cik}")
+            print(f"Found {company['title']} | CIK {cik}")
             return cik, company["title"]
 
-    raise ValueError(f"Ticker '{ticker}' not found. Must be a US public company.")
+    raise ValueError("Ticker not found")
 
 
-# ─────────────────────────────────────────────────────────────
-# STEP 2 — Pull the company's full filing history from SEC
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# STEP 2 — Filing History
+# ─────────────────────────────────────────────
 
 def get_filing_history(cik):
-    """
-    Pull every filing this company has ever made with the SEC.
-    Think of this like requesting someone's complete document history.
-    """
-    print(f"  [2/4] Pulling filing history from SEC EDGAR...")
+    print(f"[2/4] Fetching filing history...")
 
     url = f"https://data.sec.gov/submissions/CIK{cik}.json"
-    response = requests.get(url, headers={"User-Agent": USER_AGENT})
-    response.raise_for_status()
+    r = session.get(url, timeout=10)
+    r.raise_for_status()
 
-    data = response.json()
-    total = len(data.get("filings", {}).get("recent", {}).get("form", []))
-    print(f"  Found {total} total filings on record")
-
-    return data
+    time.sleep(RATE_LIMIT_SECONDS)
+    return r.json()
 
 
-# ─────────────────────────────────────────────────────────────
-# STEP 3 — Filter for only the filing types we want
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# STEP 3 — Filter filings
+# ─────────────────────────────────────────────
 
-def filter_filings(filing_history, filing_types, max_count):
-    """
-    From hundreds of SEC filings, pull out only 10-K and 10-Q forms.
-    
-    The SEC stores this data like a spreadsheet with parallel columns:
-    forms[0] and dates[0] and accessions[0] = same filing
-    forms[1] and dates[1] and accessions[1] = next filing
-    """
-    print(f"  [3/4] Filtering for: {', '.join(filing_types)}")
+def filter_filings(history, types, max_count):
+    print(f"[3/4] Filtering filings: {types}")
 
-    recent      = filing_history.get("filings", {}).get("recent", {})
-    forms       = recent.get("form", [])
-    dates       = recent.get("filingDate", [])
-    accessions  = recent.get("accessionNumber", [])
-    primary_doc = recent.get("primaryDocument", [])
+    recent = history.get("filings", {}).get("recent", {})
+
+    forms = recent.get("form", [])
+    dates = recent.get("filingDate", [])
+    accs  = recent.get("accessionNumber", [])
+    docs  = recent.get("primaryDocument", [])
 
     results = []
 
     for i, form in enumerate(forms):
-        if form in filing_types and len(results) < max_count:
+        if form in types and len(results) < max_count:
             results.append({
-                "form":        form,
-                "date":        dates[i],
-                "accession":   accessions[i],
-                "primary_doc": primary_doc[i],
+                "form": form,
+                "date": dates[i],
+                "accession": accs[i],
+                "primary_doc": docs[i],
             })
-            print(f"    Found: {form} filed on {dates[i]}")
 
-    print(f"  Keeping {len(results)} filings")
+    print(f"Selected {len(results)} filings")
     return results
 
 
-# ─────────────────────────────────────────────────────────────
-# STEP 4 — Download and clean the actual filing text
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# STEP 4 — Download Filing (SAFE + RETRY)
+# ─────────────────────────────────────────────
 
 def download_filing(cik, filing):
-    """
-    Download one filing's actual text content from SEC servers.
-    SEC filings are stored as HTML pages — we grab the raw content.
-    """
-    accession_clean = filing["accession"].replace("-", "")
+    acc = filing["accession"].replace("-", "")
     cik_short = cik.lstrip("0")
+    doc = filing["primary_doc"]
 
-    url = (
-        f"https://www.sec.gov/Archives/edgar/data/"
-        f"{cik_short}/{accession_clean}/{filing['primary_doc']}"
-    )
+    url = f"https://www.sec.gov/Archives/edgar/data/{cik_short}/{acc}/{doc}"
 
-    print(f"    Downloading {filing['form']} from {filing['date']}...")
+    try:
+        r = session.get(url, timeout=10)
+        time.sleep(RATE_LIMIT_SECONDS)
 
-    response = requests.get(url, headers={"User-Agent": USER_AGENT})
-    time.sleep(0.2)  # Be polite — don't hammer SEC servers
+        if r.status_code == 200:
+            return r.text
+    except Exception as e:
+        print("Primary fetch failed:", e)
 
-    if response.status_code != 200:
-        print(f"    Could not download (error {response.status_code}) — skipping")
-        return ""
-
-    return response.text
+    return ""
 
 
-def clean_text(raw_html, max_chars=50000):
+# ─────────────────────────────────────────────
+# STEP 5 — SECTION EXTRACTION (KEY U.S. FILING SECTIONS)
+# ─────────────────────────────────────────────
+
+def extract_sections(text):
     """
-    Strip HTML tags so we get readable text.
-    Also truncate — 10-K filings can be 500 pages, we only need ~50k chars.
+    Extract high-value SEC filing sections for LLMs
     """
-    clean = re.sub(r'<[^>]+>', ' ', raw_html)  # Remove HTML tags
-    clean = re.sub(r'\s+', ' ', clean).strip() # Collapse whitespace
 
-    if len(clean) > max_chars:
-        clean = clean[:max_chars] + "\n\n[Truncated]"
-
-    return clean
-
-
-# ─────────────────────────────────────────────────────────────
-# STEP 5 — Save everything to a JSON file
-# ─────────────────────────────────────────────────────────────
-
-def save_to_json(ticker, company_name, filings_data):
-    """
-    Save all collected data into one JSON file.
-    JSON = structured text file both humans and computers can read.
-    This is what we feed into the AI engine in Phase 2.
-    """
-    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-
-    output = {
-        "ticker":       ticker.upper(),
-        "company_name": company_name,
-        "collected_at": datetime.utcnow().isoformat() + "Z",
-        "source":       "SEC EDGAR (free public API)",
-        "filing_count": len(filings_data),
-        "filings":      filings_data
+    sections = {
+        "MD&A": "",
+        "RISK_FACTORS": "",
+        "BUSINESS": ""
     }
 
-    filepath = OUTPUT_DIR / f"{ticker.upper()}_sec_filings.json"
+    patterns = {
+        "MD&A": r"item\s+7\.*\s*management.*?discussion.*?analysis(.*?)(item\s+8|item\s+7a)",
+        "RISK_FACTORS": r"item\s+1a\.*\s*risk\s*factors(.*?)(item\s+1b|item\s+2)",
+        "BUSINESS": r"item\s+1\.*\s*business(.*?)(item\s+1a|item\s+2)"
+    }
 
-    with open(filepath, "w", encoding="utf-8") as f:
-        json.dump(output, f, indent=2, ensure_ascii=False)
+    text_lower = text.lower()
 
-    print(f"\n  Saved to: {filepath}")
-    return filepath
+    for key, pattern in patterns.items():
+        match = re.search(pattern, text_lower, re.DOTALL)
+        if match:
+            sections[key] = clean_text(match.group(1))
 
-
-# ─────────────────────────────────────────────────────────────
-# MAIN — ties all 5 steps together
-# ─────────────────────────────────────────────────────────────
-
-def collect(ticker, filing_types=None, max_count=4):
-    if filing_types is None:
-        filing_types = ["10-K", "10-Q"]
-
-    print(f"\n{'='*50}")
-    print(f"  SEC EDGAR Collector — Phase 1")
-    print(f"  Ticker: {ticker.upper()} | Forms: {', '.join(filing_types)}")
-    print(f"{'='*50}")
-
-    cik, company_name = ticker_to_cik(ticker)
-    history           = get_filing_history(cik)
-    filings_meta      = filter_filings(history, filing_types, max_count)
-
-    if not filings_meta:
-        print("\n  No filings found. Try a different ticker.")
-        return
-
-    print(f"\n  [4/4] Downloading filing content...")
-    filings_data = []
-
-    for filing in filings_meta:
-        raw_text = download_filing(cik, filing)
-        clean    = clean_text(raw_text)
-        filings_data.append({
-            "form":       filing["form"],
-            "date":       filing["date"],
-            "accession":  filing["accession"],
-            "characters": len(clean),
-            "content":    clean
-        })
-
-    output_path  = save_to_json(ticker, company_name, filings_data)
-    total_chars  = sum(f["characters"] for f in filings_data)
-
-    print(f"\n  Done!")
-    print(f"  Company : {company_name}")
-    print(f"  Filings : {len(filings_data)} downloaded")
-    print(f"  Text    : {total_chars:,} characters collected")
-    print(f"  File    : {output_path}")
-    print(f"\n  Ready for Phase 2 — AI Synthesis Engine")
+    return sections
 
 
-# ─────────────────────────────────────────────────────────────
-# Run when you type: python collectors/sec_collector.py --ticker AAPL
-# ─────────────────────────────────────────────────────────────
+# ─────────────────────────────────────────────
+# STEP 6 — CLEAN TEXT
+# ─────────────────────────────────────────────
+
+def clean_text(raw):
+    raw = re.sub(r"<[^>]+>", " ", raw)
+    raw = re.sub(r"\s+", " ", raw).strip()
+    return raw
+
+
+# ─────────────────────────────────────────────
+# STEP 7 — LLM CHUNKING
+# ─────────────────────────────────────────────
+
+def chunk_text(text, chunk_size=2000):
+    """
+    Split into LLM-friendly chunks
+    """
+    chunks = []
+    for i in range(0, len(text), chunk_size):
+        chunks.append(text[i:i+chunk_size])
+    return chunks
+
+
+# ─────────────────────────────────────────────
+# STEP 8 — SAVE OUTPUT
+# ─────────────────────────────────────────────
+
+def save(ticker, company, data):
+    OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+
+    path = OUTPUT_DIR / f"{ticker.upper()}_sec.json"
+
+    with open(path, "w", encoding="utf-8") as f:
+        json.dump({
+            "ticker": ticker,
+            "company": company,
+            "collected_at": datetime.utcnow().isoformat(),
+            "filings": data
+        }, f, indent=2)
+
+    print(f"\nSaved → {path}")
+    return path
+
+
+# ─────────────────────────────────────────────
+# MAIN PIPELINE
+# ─────────────────────────────────────────────
+
+def collect(ticker, forms=["10-K", "10-Q"], max_count=3):
+
+    print("\n==============================")
+    print("SEC EDGAR Collector (LLM Ready)")
+    print("==============================")
+
+    cik, company = ticker_to_cik(ticker)
+    history = get_filing_history(cik)
+    filings = filter_filings(history, forms, max_count)
+
+    results = []
+
+    for filing in filings:
+        raw = download_filing(cik, filing)
+        if not raw:
+            continue
+
+        sections = extract_sections(raw)
+
+        combined = {
+            "meta": filing,
+            "sections": sections,
+            "chunks": {
+                k: chunk_text(v)
+                for k, v in sections.items()
+                if v
+            }
+        }
+
+        results.append(combined)
+
+    save(ticker, company, results)
+
+    print("\nDone. Ready for LLM ingestion 🚀")
+
+
+# ─────────────────────────────────────────────
+# CLI
+# ─────────────────────────────────────────────
 
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(
-        description="Pull SEC financial filings for any public US company"
-    )
-    parser.add_argument("--ticker", required=True,
-        help="Stock ticker e.g. AAPL, MSFT, NVDA")
-    parser.add_argument("--forms", nargs="+", default=["10-K", "10-Q"],
-        help="Filing types (default: 10-K 10-Q)")
-    parser.add_argument("--max", type=int, default=4,
-        help="Max filings to download (default: 4)")
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--ticker", required=True)
+    parser.add_argument("--max", type=int, default=3)
 
     args = parser.parse_args()
-    collect(args.ticker, args.forms, args.max)
+    collect(args.ticker, max_count=args.max)

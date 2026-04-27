@@ -33,15 +33,19 @@ import anthropic
 def load_env(filepath=".env"):
     """Read key=value pairs from .env file."""
     env = {}
-    try:
-        with open(filepath) as f:
-            for line in f:
-                line = line.strip()
-                if line and not line.startswith("#") and "=" in line:
-                    key, _, value = line.partition("=")
-                    env[key.strip()] = value.strip()
-    except FileNotFoundError:
-        pass
+    # Try multiple locations — project root and current directory
+    for path in [Path(__file__).parent.parent / filepath, Path(filepath)]:
+        try:
+            with open(path) as f:
+                for line in f:
+                    line = line.strip()
+                    if line and not line.startswith("#") and "=" in line:
+                        key, _, value = line.partition("=")
+                        # Strip any trailing whitespace or quotes
+                        env[key.strip()] = value.strip().strip('"').strip("'")
+            break
+        except FileNotFoundError:
+            continue
     return env
 
 ENV        = load_env()

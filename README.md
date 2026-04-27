@@ -23,10 +23,14 @@
 
 ## 🎯 The Problem This Solves
 
-Enterprise teams spend **3-5 hours per company** on manual research before high-stakes meetings.
-Existing SaaS tools charge **$20-100/seat/month** and still require humans to synthesize the output.
+Enterprise teams spend 3–5 hours manually researching a single public company before earnings calls, investment decisions, or board meetings.
 
-This engine eliminates both problems entirely.
+Existing SaaS tools:
+- Aggregate secondary data
+- Provide generic summaries
+- Still require manual synthesis and validation
+
+This system removes manual synthesis by directly converting SEC filings into structured, decision-ready intelligence briefs.
 
 ---
 
@@ -37,49 +41,52 @@ Unlike generic RAG tools that summarize whatever text you paste in, this engine 
 every claim is traceable to a primary government source.
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                    SOVEREIGN INTELLIGENCE ENGINE                 │
-├─────────────────────────────────────────────────────────────────┤
-│                                                                  │
-│  [1] DIRECT SEC INGESTION                                        │
-│      └─ Bypasses third-party aggregators                         │
-│      └─ Pulls raw XBRL/JSON directly from SEC EDGAR             │
-│      └─ Zero data vendor dependency                              │
-│                          ↓                                       │
-│  [2] CONTEXT-AWARE CHUNKING                                      │
-│      └─ Maps 200k+ characters into thematic nodes               │
-│      └─ Risk Section → Risk Analysis node                        │
-│      └─ MD&A Section → Strategy Analysis node                    │
-│      └─ Financials → Health Score node                           │
-│                          ↓                                       │
-│  [3] CLAUDE AI ORCHESTRATION                                     │
-│      └─ Prompted as Principal Equity Analyst                     │
-│      └─ Cross-document reasoning (10-Q vs 10-K)                 │
-│      └─ Ignores PR spin, focuses on Management Bets             │
-│      └─ Structured JSON output — no free-form hallucination     │
-│                          ↓                                       │
-│  [4] DETERMINISTIC OUTPUT LAYER                                  │
-│      └─ PDF consulting-grade artifact                            │
-│      └─ Web dashboard (Streamlit)                                │
-│      └─ Slack / email digest (Phase 5)                          │
-│      └─ Every claim linked to primary source filing             │
-│                                                                  │
-└─────────────────────────────────────────────────────────────────┘
+┌──────────────────────────────────────────────────────────────┐
+│              SOVEREIGN INTELLIGENCE ENGINE    (Updated)      │
+├──────────────────────────────────────────────────────────────┤
+│                                                              │
+│  [1] SEC DIRECT INGESTION                                    │
+│      └─ Pulls filings directly from SEC EDGAR               │
+│      └─ No third-party financial data providers             │
+│                                                              │
+│  [2] STRUCTURED PARSING LAYER                                │
+│      └─ Extracts MD&A, Risk Factors, Business sections      │
+│      └─ Converts filings into structured semantic blocks    │
+│                                                              │
+│  [3] AI SYNTHESIS ENGINE                                     │
+│      └─ LLM acts as Equity Research Analyst                 │
+│      └─ Cross-period comparison (10-Q vs 10-K)             │
+│      └─ Focus: operational signals, not PR language         │
+│                                                              │
+│  [4] INTELLIGENCE OUTPUT LAYER                               │
+│      └─ Structured JSON briefs                              │
+│      └─ PDF reports (investment-grade format)              │
+│      └─ Dashboard + scheduled delivery (Phase 5)            │
+│                                                              │
+└──────────────────────────────────────────────────────────────┘
+
+
+Design Principle: Deterministic Over Generative
+
+This system prioritizes:
+- Structured extraction over free-form summarization
+- Source-linked claims over probabilistic generation
+- Repeatable outputs over conversational variation
+
 ```
 
 ---
 
 ## 📈 Unit Economics vs. Traditional SaaS
 
-| Metric | Traditional Enterprise SaaS | Sovereign Intelligence Engine |
-|--------|----------------------------|-------------------------------|
-| Monthly Cost | $20 – $100 / user | $0 (Open Source) |
-| Cost Per Brief | Included in subscription | ~$0.01 (inference cost only) |
-| Data Privacy | Vendor-stored | Local / Private Cloud |
-| Data Source | Aggregator (lagged) | SEC EDGAR (primary, real-time) |
-| Auditability | Black box | Primary source linked |
-| Customization | Limited | Full — you own the code |
-| Scale (500 companies) | $10,000–$50,000/month | ~$5/month |
+Metric                         Traditional SaaS        This System
+-----------------------------------------------------------------------
+Cost per user/month           $20–$100               $0 (self-hosted)
+Cost per analysis brief       Included in license    ~$0.01–$0.05 (LLM cost)
+Data source                   Aggregated vendors     SEC EDGAR (free)
+Latency                       Minutes–hours          ~60 seconds end-to-end
+Auditability                  Black box              Fully traceable to filings
+This is compute-based estimation, not SaaS pricing equivalence.
 
 > **The ROI case:** A 10-person enterprise team replacing a $50/seat tool saves **$6,000/year**.
 > At 500 companies monitored daily, traditional tools cost **$600,000/year**. This engine: **$60/year**.
@@ -88,22 +95,15 @@ every claim is traceable to a primary government source.
 
 ## 🔬 Research Philosophy: First Principles Prompting
 
-Most AI tools tell Claude to "summarize this document." This engine operates differently.
+Most AI tools summarize financial filings.
 
-**The engine prompts Claude to act as a Principal Equity Analyst with three directives:**
+This system instead structures them into analytical units and instructs the model to behave as an institutional equity analyst.
 
-1. **Ignore PR Spin** — Management Discussion sections are written by lawyers. The engine
-   is instructed to focus on *what changed* between periods, not what management *claims* changed.
-
-2. **Follow the Management Bets** — R&D spend vs. revenue realization. CapEx direction.
-   Headcount changes. These are the signals that predict strategic pivots 2-3 quarters ahead.
-
-3. **Surface the Buried Risk** — SEC 10-K risk sections contain legally-required disclosures
-   that management buries in boilerplate. The engine is instructed to extract *specific,
-   named risks* — not generic category labels.
-
-This approach produces briefs that are **materially different** from what you get by
-pasting a filing into ChatGPT.
+Core principles:
+- Focus on changes across reporting periods, not static summaries
+- Extract operational signals (capex, hiring, margins, risk evolution)
+- Prioritize mandatory SEC disclosures over management narrative
+- Maintain traceability back to source filing sections
 
 ---
 
@@ -119,11 +119,16 @@ pasting a filing into ChatGPT.
 
 ## 📊 Results So Far
 
-| Company | Filings Collected | AI Brief | PDF Report |
-|---------|------------------|----------|------------|
-| Microsoft (MSFT) | ✅ 4 filings | ✅ Generated | ✅ Created |
-| Tesla (TSLA) | ✅ 4 filings | ✅ Generated | ✅ Created |
-| NVIDIA (NVDA) | ✅ 4 filings | ✅ Generated | ✅ Created |
+Company        Status
+------------------------------------
+MSFT           10-K / 10-Q processed
+TSLA           10-K / 10-Q processed
+NVDA           10-K / 10-Q processed
+
+Outputs generated:
+- Structured JSON intelligence briefs
+- Section-level extraction (MD&A, Risk Factors)
+- PDF reports (Phase 3)
 
 ---
 
@@ -185,10 +190,18 @@ company-intelligence-engine/
 
 ## 🗺️ Roadmap
 
-### Phase 5 — Autonomous Daily Scheduler (In Progress)
-- Cron job runs pipeline every morning at 6am
-- Pushes briefs to Slack channel or WhatsApp
-- GitHub Actions for zero-infrastructure automation
+Phase 1 — SEC Ingestion Layer ✅
+Phase 2 — LLM Synthesis Engine ✅
+Phase 3 — PDF Report Generator ✅
+Phase 4 — Web Dashboard (Streamlit) ✅
+Phase 5 — Scheduling + Alerts System (In progress)
+
+Next Iterations:
+- Vector database integration (RAG over filings)
+- Embedding-based semantic search across companies
+- Risk trend detection across quarters
+- Multi-company comparative analysis engine
+- Slack / email alerting for financial anomalies
 
 ### Future Vision — Agentic Orchestration
 Moving from **Read-Only** to **Actionable Intelligence:**
@@ -204,11 +217,9 @@ Moving from **Read-Only** to **Actionable Intelligence:**
 
 ## 🛡️ Data Sources
 
-| Source | What We Pull | API Key? | Latency |
-|--------|-------------|----------|---------|
-| SEC EDGAR | 10-K and 10-Q filings | No — completely free | Same-day filing |
-| Google News RSS | Recent press coverage | No — completely free | Real-time |
-| Anthropic Claude | AI analysis and synthesis | Yes — ~$0.01/brief | 15-30 seconds |
+SEC EDGAR → Primary filings (10-K, 10-Q)
+Anthropic / OpenAI → AI synthesis layer
+Google News RSS → Optional contextual enrichment (future phase)
 
 ---
 

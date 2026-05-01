@@ -3,7 +3,15 @@
 > **An Open-Source Agentic Framework for High-Fidelity Financial Analysis.**
 > Moving from 'Generative Fluff' to 'Deterministic Ground Truth' — for $0.01 per brief.
 
-**Built by [Abhishek Sahay](https://www.linkedin.com/in/abhisheksahay/)** | Open Source (MIT) | No SaaS subscription required
+
+## 👤 Author
+
+**Abhishek Sahay** — Senior Product Leader | AI/ML & LLM Copilots  
+[LinkedIn](https://www.linkedin.com/in/abhisheksahay/) | [GitHub](https://github.com/abisahay90-ai)
+
+> *"The next frontier isn't better summarization — it's AI that takes action on what it reads."Here is your updated `README.md`. I have integrated the **Intelligence Eval Engine (Phase 5.5)**, added the **"Audit-First"** philosophy, and included the new directory structure for the evaluator.
+
+---
 
 [![Python](https://img.shields.io/badge/Python-3.x-blue)](https://python.org)
 [![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
@@ -14,55 +22,35 @@
 
 ## 🎯 The Problem This Solves
 
-Enterprise teams spend 3–5 hours manually researching a single public company before earnings calls, investment decisions, or board meetings.
+Enterprise teams spend 3–5 hours manually researching a single public company before earnings calls or investment decisions. Existing SaaS tools often provide generic summaries that still require manual validation.
 
-Existing SaaS tools:
-- Aggregate secondary data
-- Provide generic summaries
-- Still require manual synthesis and validation
-
-This system removes manual synthesis by directly converting SEC filings into structured, decision-ready intelligence briefs.
+This system removes manual synthesis by directly converting SEC filings into **structured, decision-ready intelligence briefs** with a built-in "Auditor" to prevent hallucinations.
 
 ---
 
 ## 🧠 System Architecture: The "Sovereign" Approach
 
-Unlike generic RAG tools that summarize whatever text you paste in, this engine runs a
-**Multi-Stage Synthesis Pipeline** designed to eliminate hallucinations and ensure
-every claim is traceable to a primary government source.
+Unlike generic RAG tools, this engine runs a **Multi-Stage Synthesis Pipeline** designed to ensure every claim is traceable to a primary government source.
 
-```
 ┌──────────────────────────────────────────────────────────────┐
-│              SOVEREIGN INTELLIGENCE ENGINE    (Updated)      │
+│              SOVEREIGN INTELLIGENCE ENGINE                   │
 ├──────────────────────────────────────────────────────────────┤
 │                                                              │
-│  [1] SEC DIRECT INGESTION                                    │
-│      └─ Pulls filings directly from SEC EDGAR               │
-│      └─ No third-party financial data providers             │
+│  [1] SEC DIRECT INGESTION (sec_collector.py)                 │
+│      └─ Pulls raw filings directly from SEC EDGAR            │
 │                                                              │
 │  [2] STRUCTURED PARSING LAYER                                │
-│      └─ Extracts MD&A, Risk Factors, Business sections      │
-│      └─ Converts filings into structured semantic blocks    │
+│      └─ Extracts MD&A and Risk Factors into semantic blocks  │
 │                                                              │
-│  [3] AI SYNTHESIS ENGINE                                     │
-│      └─ LLM acts as Equity Research Analyst                 │
-│      └─ Cross-period comparison (10-Q vs 10-K)             │
-│      └─ Focus: operational signals, not PR language         │
+│  [3] AI SYNTHESIS & EVALUATION (evaluator.py)                │
+│      └─ Creator: Claude generates the synthesis              │
+│      └─ Judge: Cross-model audit for Hallucinations          │
 │                                                              │
-│  [4] INTELLIGENCE OUTPUT LAYER                               │
-│      └─ Structured JSON briefs                              │
-│      └─ PDF reports (investment-grade format)              │
-│      └─ Dashboard + scheduled delivery (Phase 5)            │
+│  [4] AGENTIC HANDSHAKE                                       │
+│      └─ Score > 0.9: Automated Slack Delivery                │
+│      └─ Score < 0.9: Flagged for Human Review                │
 │                                                              │
 └──────────────────────────────────────────────────────────────┘
-
-
-Design Principle: Deterministic Over Generative
-
-This system prioritizes:
-- Structured extraction over free-form summarization
-- Source-linked claims over probabilistic generation
-- Repeatable outputs over conversational variation
 
 ```
 
@@ -98,6 +86,16 @@ Core principles:
 
 ---
 
+## 🛡️ The "Plumbing of Trust" (Intelligence Evals)
+
+Before allowing the system to act (Phase 6), we implemented a deterministic verification layer.
+
+*   **Hallucination Check:** Binary pass/fail against "Golden Datasets".
+*   **Traceability Scoring:** Every claim must include a clickable SEC EDGAR URL; otherwise, it receives a score of 0.
+*   **The Kill Switch:** If the trust score falls below 90%, the agent halts and requests human intervention.
+
+---
+
 ## ✅ Build Progress
 
 - [x] Phase 1 — SEC EDGAR collector ✅
@@ -105,8 +103,9 @@ Core principles:
 - [x] Phase 3 — PDF brief generator ✅
 - [x] Phase 4 — Web dashboard ✅
 - [x] Phase 5 — Autonomous scheduler + Slack delivery ✅
+- [x] **Phase 5.5 — Intelligence Eval Engine (The Auditor) ✅**
 
----
+
 
 ## 📊 Results So Far
 
@@ -165,15 +164,11 @@ python -m streamlit run outputs/dashboard.py
 
 ```
 company-intelligence-engine/
-├── collectors/
-│   └── sec_collector.py       ← Phase 1: Direct SEC EDGAR ingestion
-├── engine/
-│   └── synthesizer.py         ← Phase 2: Claude AI orchestration
-├── outputs/
-│   ├── pdf_generator.py       ← Phase 3: Consulting-grade PDF artifacts
-│   └── dashboard.py           ← Phase 4: Streamlit web dashboard
-├── .env                       ← API keys (gitignored — never committed)
-├── .gitignore                 ← Security: excludes secrets and raw data
+├── collectors/     ← Phase 1: SEC EDGAR ingestion
+├── engine/         ← Phase 2: Claude AI orchestration
+├── evals/          ← Phase 5.5: The Auditor (Golden Datasets & Evaluator)
+├── outputs/        ← Phase 3 & 4: PDF artifacts & Streamlit Dashboard
+├── .env            ← API keys (gitignored)
 └── README.md
 ```
 

@@ -1,0 +1,14 @@
+[
+  {
+    "ticker": "TSLA",
+    "question": "What is Tesla's main business?",
+    "expected_answer": "Electric vehicles and clean energy products",
+    "source": "https://www.sec.gov/edgar/browse/?CIK=1318605"
+  },
+  {
+    "ticker": "TSLA",
+    "question": "What did Tesla spend on AI chips in 2023?",
+    "expected_answer": "NOT_IN_SOURCE",
+    "source": "https://www.sec.gov/edgar/browse/?CIK=1318605"
+  }
+]

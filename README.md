@@ -12,15 +12,6 @@
 
 ---
 
-## 📺 Live Demo
-
-> Type any US public company ticker → get a boardroom-ready intelligence brief in 60 seconds.
-
-![Dashboard Preview](https://via.placeholder.com/800x400/0A1628/2E86C1?text=Company+Intelligence+Engine+Dashboard)
-
-
----
-
 ## 🎯 The Problem This Solves
 
 Enterprise teams spend 3–5 hours manually researching a single public company before earnings calls, investment decisions, or board meetings.
